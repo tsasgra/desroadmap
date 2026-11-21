@@ -1,0 +1,52 @@
+/* ==========================================================================
+   Roadmap 30 Ngày Làm Chủ Phối Màu & Lên Idea Thiết Kế - Custom Styles
+   ========================================================================== */
+
+/* Tùy chỉnh nút kéo (thumb) cho thanh trượt HSB mượt mà hơn trên mọi trình duyệt */
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 2.5px solid #4f46e5;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.12);
+  box-shadow: 0 3px 10px rgba(79, 70, 229, 0.35);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 2.5px solid #4f46e5;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+/* Thanh cuộn gọn gàng trong các modal */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.65);
+}
