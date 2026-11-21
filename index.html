@@ -107,6 +107,21 @@
           <span class="md:hidden">Lab HSB</span>
         </button>
 
+        <!-- Nút Tài khoản Email (Đăng nhập / Đăng ký / Hồ sơ) -->
+        <button
+          id="openAuthBtn"
+          type="button"
+          class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-studio-border dark:border-studio-darkBorder bg-studio-card dark:bg-studio-darkSubtle hover:border-accent text-studio-ink dark:text-studio-darkInk text-xs sm:text-sm font-semibold transition-all active:scale-95"
+        >
+          <span id="authHeaderAvatar" class="w-5 h-5 rounded-full bg-accent/15 text-accent dark:text-accent-dark flex items-center justify-center text-[11px] font-bold shrink-0">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </span>
+          <span id="authHeaderLabel" class="hidden sm:inline max-w-[120px] truncate">Đăng nhập</span>
+        </button>
+
         <!-- Nút chuyển đổi Light / Dark Mode -->
         <button
           id="themeToggleBtn"
@@ -1210,6 +1225,112 @@
         >
           Xác nhận Reset
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL TÀI KHOẢN EMAIL (ĐĂNG KÝ / ĐĂNG NHẬP / HỒ SƠ) ==================== -->
+  <div
+    id="authModal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="authModalTitle"
+    class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm"
+  >
+    <div class="w-full max-w-md rounded-2xl bg-studio-card dark:bg-studio-darkCard border border-studio-border dark:border-studio-darkBorder shadow-studio-lg overflow-hidden">
+      <!-- Header Modal -->
+      <div class="flex items-center justify-between gap-3 px-6 py-4 border-b border-studio-border dark:border-studio-darkBorder">
+        <div>
+          <h3 id="authModalTitle" class="text-base sm:text-lg font-bold">Tài khoản học tập</h3>
+          <p class="text-xs text-studio-muted dark:text-studio-darkMuted">Lưu tiến độ 30 ngày riêng biệt theo từng địa chỉ Email.</p>
+        </div>
+        <button
+          id="closeAuthModalBtn"
+          type="button"
+          aria-label="Đóng khung tài khoản"
+          class="p-2 rounded-xl hover:bg-studio-subtle dark:hover:bg-studio-darkSubtle text-studio-muted hover:text-studio-ink dark:hover:text-white transition-colors"
+        >
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Khung Form Đăng nhập / Đăng ký -->
+      <div id="authFormsView" class="p-6 space-y-4">
+        <div class="grid grid-cols-2 p-1 rounded-xl bg-studio-subtle dark:bg-studio-darkSubtle border border-studio-border/60 dark:border-studio-darkBorder">
+          <button id="authTabLoginBtn" type="button" class="py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all">Đăng nhập</button>
+          <button id="authTabRegisterBtn" type="button" class="py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all">Đăng ký Email</button>
+        </div>
+
+        <div id="authErrorBox" class="hidden p-3 rounded-xl text-xs font-medium bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60"></div>
+
+        <!-- Form Đăng nhập -->
+        <form id="loginForm" class="space-y-3.5" novalidate>
+          <div>
+            <label for="loginEmailInput" class="block text-xs font-semibold mb-1.5">Email</label>
+            <input id="loginEmailInput" type="email" required placeholder="ban@example.com" class="w-full px-3.5 py-2.5 rounded-xl text-sm bg-studio-subtle/60 dark:bg-studio-darkSubtle border border-studio-border dark:border-studio-darkBorder focus:outline-none focus:ring-2 focus:ring-accent" />
+          </div>
+          <div>
+            <label for="loginPasswordInput" class="block text-xs font-semibold mb-1.5">Mật khẩu</label>
+            <input id="loginPasswordInput" type="password" required placeholder="Nhập mật khẩu của bạn" class="w-full px-3.5 py-2.5 rounded-xl text-sm bg-studio-subtle/60 dark:bg-studio-darkSubtle border border-studio-border dark:border-studio-darkBorder focus:outline-none focus:ring-2 focus:ring-accent" />
+          </div>
+          <button type="submit" class="w-full py-2.5 px-4 rounded-xl bg-accent hover:bg-accent-hover text-white text-sm font-bold shadow-sm transition-all active:scale-[0.98]">
+            Đăng nhập ngay
+          </button>
+        </form>
+
+        <!-- Form Đăng ký -->
+        <form id="registerForm" class="hidden space-y-3.5" novalidate>
+          <div>
+            <label for="regNameInput" class="block text-xs font-semibold mb-1.5">Tên hiển thị</label>
+            <input id="regNameInput" type="text" required placeholder="VD: Minh Anh" class="w-full px-3.5 py-2.5 rounded-xl text-sm bg-studio-subtle/60 dark:bg-studio-darkSubtle border border-studio-border dark:border-studio-darkBorder focus:outline-none focus:ring-2 focus:ring-accent" />
+          </div>
+          <div>
+            <label for="regEmailInput" class="block text-xs font-semibold mb-1.5">Địa chỉ Email</label>
+            <input id="regEmailInput" type="email" required placeholder="ban@example.com" class="w-full px-3.5 py-2.5 rounded-xl text-sm bg-studio-subtle/60 dark:bg-studio-darkSubtle border border-studio-border dark:border-studio-darkBorder focus:outline-none focus:ring-2 focus:ring-accent" />
+          </div>
+          <div>
+            <label for="regPasswordInput" class="block text-xs font-semibold mb-1.5">Mật khẩu (tối thiểu 6 ký tự)</label>
+            <input id="regPasswordInput" type="password" required minlength="6" placeholder="••••••••" class="w-full px-3.5 py-2.5 rounded-xl text-sm bg-studio-subtle/60 dark:bg-studio-darkSubtle border border-studio-border dark:border-studio-darkBorder focus:outline-none focus:ring-2 focus:ring-accent" />
+          </div>
+          <div>
+            <label for="regConfirmPasswordInput" class="block text-xs font-semibold mb-1.5">Nhập lại mật khẩu</label>
+            <input id="regConfirmPasswordInput" type="password" required minlength="6" placeholder="••••••••" class="w-full px-3.5 py-2.5 rounded-xl text-sm bg-studio-subtle/60 dark:bg-studio-darkSubtle border border-studio-border dark:border-studio-darkBorder focus:outline-none focus:ring-2 focus:ring-accent" />
+          </div>
+          <button type="submit" class="w-full py-2.5 px-4 rounded-xl bg-accent hover:bg-accent-hover text-white text-sm font-bold shadow-sm transition-all active:scale-[0.98]">
+            Tạo tài khoản &amp; Lưu tiến độ
+          </button>
+          <p class="text-[11px] text-studio-muted dark:text-studio-darkMuted leading-relaxed">
+            Tiến độ hiện tại bạn đã tick ở chế độ Khách sẽ được tự động chuyển vào tài khoản mới này.
+          </p>
+        </form>
+      </div>
+
+      <!-- Khung Hồ sơ cá nhân -->
+      <div id="authProfileView" class="hidden p-6 space-y-5">
+        <div class="flex items-center gap-4 p-4 rounded-2xl bg-studio-subtle/70 dark:bg-studio-darkSubtle border border-studio-border dark:border-studio-darkBorder">
+          <div id="profileAvatarCircle" class="w-12 h-12 rounded-2xl bg-accent text-white flex items-center justify-center text-lg font-extrabold shrink-0">U</div>
+          <div class="min-w-0 flex-1">
+            <div id="profileNameText" class="text-base font-bold truncate">Người dùng</div>
+            <div id="profileEmailText" class="text-xs text-studio-muted dark:text-studio-darkMuted truncate">user@example.com</div>
+            <div id="profileProgressSummary" class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mt-1">Đã hoàn thành 0 / 30 ngày</div>
+          </div>
+        </div>
+
+        <div class="p-3.5 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/70 dark:border-indigo-900/50 text-xs text-studio-muted dark:text-studio-darkMuted leading-relaxed">
+          Mọi dấu tick, ghi chú và màu Lab HSB của bạn đang được tự động lưu riêng cho tài khoản Email này.
+        </div>
+
+        <div class="flex items-center justify-end gap-2.5">
+          <button id="profileExportJsonBtn" type="button" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold border border-studio-border dark:border-studio-darkBorder hover:bg-studio-subtle dark:hover:bg-studio-darkSubtle transition-colors">
+            Sao lưu .JSON
+          </button>
+          <button id="logoutBtn" type="button" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white shadow-sm transition-colors">
+            Đăng xuất
+          </button>
+        </div>
       </div>
     </div>
   </div>

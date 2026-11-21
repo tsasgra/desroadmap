@@ -710,6 +710,10 @@
 
       const REVIEW_GROUP_CATEGORIES = ['Tổng hợp', 'Nghỉ & Ôn', 'Phản biện', 'Tổng kết'];
       const STORAGE_KEY = 'studio_roadmap_30_days_v1';
+      const USERS_STORAGE_KEY = 'studio_roadmap_users_v1';
+      const SESSION_STORAGE_KEY = 'studio_roadmap_session_v1';
+      let currentUser = null; // { name, email } hoặc null (chế độ Khách)
+      let activeAuthTab = 'register'; // 'login' | 'register'
 
       // =========================================================================
       // 2. QUẢN LÝ TRẠNG THÁI (STATE) & LOCALSTORAGE
@@ -848,10 +852,27 @@
         if (stEl) stEl.value = filters.status;
       }
 
-      /** Tải trạng thái từ localStorage an toàn */
+      function getActiveStorageKey() {
+        return currentUser && currentUser.email
+          ? `${STORAGE_KEY}::${currentUser.email.toLowerCase()}`
+          : STORAGE_KEY;
+      }
+
+      function resetStateToDefaultsInMemory() {
+        state.completedDays = {};
+        state.notes = {};
+        state.competencies = {};
+        state.viewMode = 'roadmap';
+        filters = { search: '', phase: 'all', category: 'all', status: 'all' };
+        activeHubTab = 'guide';
+        activeToolFilter = 'all';
+      }
+
+      /** Tải trạng thái từ localStorage an toàn (theo tài khoản đang đăng nhập hoặc Khách) */
       function loadState() {
+        resetStateToDefaultsInMemory();
         try {
-          const raw = localStorage.getItem(STORAGE_KEY);
+          const raw = localStorage.getItem(getActiveStorageKey());
           if (raw) {
             applyLoadedSnapshot(JSON.parse(raw));
           }
@@ -864,20 +885,313 @@
       function saveState() {
         const snapshot = buildFullStateSnapshot();
         try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
-          updateSaveStatusUI();
+          localStorage.setItem(getActiveStorageKey(), JSON.stringify(snapshot));
+          const labelSuffix = currentUser ? ` (${currentUser.email})` : '';
+          const now = new Date();
+          const hh = String(now.getHours()).padStart(2, '0');
+          const mm = String(now.getMinutes()).padStart(2, '0');
+          updateSaveStatusUI(`Đã tự động lưu lúc ${hh}:${mm}${labelSuffix}`);
         } catch (err) {
           console.warn('Không thể ghi localStorage:', err);
         }
         if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+          const emailKey = currentUser && currentUser.email ? currentUser.email.toLowerCase() : 'guest';
           fetch('api/state', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(snapshot)
+            body: JSON.stringify({ email: emailKey, state: snapshot })
           }).then((res) => {
-            if (res.ok) updateSaveStatusUI('Đã lưu vào progress_data.json');
+            if (res.ok) updateSaveStatusUI(`Đã lưu vào progress_data.json (${emailKey})`);
           }).catch(() => {});
         }
+      }
+
+      // =========================================================================
+      // HỆ THỐNG TÀI KHOẢN EMAIL (ĐĂNG KÝ / ĐĂNG NHẬP / ĐĂNG XUẤT)
+      // =========================================================================
+      async function hashPasswordClient(email, password) {
+        const raw = `${email.toLowerCase()}::studio_roadmap_salt::${password}`;
+        try {
+          if (window.crypto && window.crypto.subtle) {
+            const data = new TextEncoder().encode(raw);
+            const hashBuf = await window.crypto.subtle.digest('SHA-256', data);
+            return Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+          }
+        } catch (err) {
+          // Fallback hash nhẹ nếu trình duyệt không hỗ trợ crypto.subtle
+        }
+        let h = 2166136261;
+        for (let i = 0; i < raw.length; i++) {
+          h ^= raw.charCodeAt(i);
+          h = Math.imul(h, 16777619);
+        }
+        return 'fnv_' + (h >>> 0).toString(16);
+      }
+
+      function loadLocalUsersMap() {
+        try {
+          return JSON.parse(localStorage.getItem(USERS_STORAGE_KEY) || '{}');
+        } catch (err) {
+          return {};
+        }
+      }
+
+      function saveLocalUsersMap(map) {
+        try {
+          localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(map));
+        } catch (err) {
+          console.warn('Không thể lưu danh sách tài khoản:', err);
+        }
+      }
+
+      function loadSessionUser() {
+        try {
+          const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && parsed.email) currentUser = parsed;
+          }
+        } catch (err) {
+          currentUser = null;
+        }
+      }
+
+      function saveSessionUser(userObj) {
+        currentUser = userObj;
+        try {
+          if (userObj) {
+            localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(userObj));
+          } else {
+            localStorage.removeItem(SESSION_STORAGE_KEY);
+          }
+        } catch (err) {
+          console.warn('Không thể lưu phiên đăng nhập:', err);
+        }
+      }
+
+      function updateAuthHeaderUI() {
+        const avatarEl = document.getElementById('authHeaderAvatar');
+        const labelEl = document.getElementById('authHeaderLabel');
+        if (!avatarEl || !labelEl) return;
+
+        if (currentUser && currentUser.email) {
+          const initial = (currentUser.name || currentUser.email).trim().charAt(0).toUpperCase();
+          avatarEl.textContent = initial;
+          avatarEl.className = 'w-5 h-5 rounded-full bg-accent text-white flex items-center justify-center text-[11px] font-bold shrink-0';
+          labelEl.textContent = currentUser.name || currentUser.email;
+        } else {
+          avatarEl.innerHTML = '<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>';
+          avatarEl.className = 'w-5 h-5 rounded-full bg-accent/15 text-accent dark:text-accent-dark flex items-center justify-center text-[11px] font-bold shrink-0';
+          labelEl.textContent = 'Đăng nhập';
+        }
+      }
+
+      function showAuthError(msg) {
+        const box = document.getElementById('authErrorBox');
+        if (!box) return;
+        if (!msg) {
+          box.classList.add('hidden');
+          box.textContent = '';
+        } else {
+          box.textContent = msg;
+          box.classList.remove('hidden');
+        }
+      }
+
+      function switchAuthTab(tab) {
+        activeAuthTab = tab;
+        showAuthError('');
+        const loginBtn = document.getElementById('authTabLoginBtn');
+        const regBtn = document.getElementById('authTabRegisterBtn');
+        const loginForm = document.getElementById('loginForm');
+        const regForm = document.getElementById('registerForm');
+
+        const activeCls = ['bg-studio-card', 'dark:bg-studio-darkCard', 'text-accent', 'dark:text-accent-dark', 'shadow-sm'];
+        const inactiveCls = ['text-studio-muted', 'dark:text-studio-darkMuted'];
+
+        if (tab === 'login') {
+          loginBtn.classList.add(...activeCls);
+          loginBtn.classList.remove(...inactiveCls);
+          regBtn.classList.remove(...activeCls);
+          regBtn.classList.add(...inactiveCls);
+          loginForm.classList.remove('hidden');
+          regForm.classList.add('hidden');
+        } else {
+          regBtn.classList.add(...activeCls);
+          regBtn.classList.remove(...inactiveCls);
+          loginBtn.classList.remove(...activeCls);
+          loginBtn.classList.add(...inactiveCls);
+          regForm.classList.remove('hidden');
+          loginForm.classList.add('hidden');
+        }
+      }
+
+      function openAuthModal(defaultTab = 'register') {
+        showAuthError('');
+        const formsView = document.getElementById('authFormsView');
+        const profileView = document.getElementById('authProfileView');
+
+        if (currentUser && currentUser.email) {
+          formsView.classList.add('hidden');
+          profileView.classList.remove('hidden');
+          const doneCount = ROADMAP_DAYS.filter((d) => state.completedDays[d.day]).length;
+          document.getElementById('profileAvatarCircle').textContent = (currentUser.name || currentUser.email).charAt(0).toUpperCase();
+          document.getElementById('profileNameText').textContent = currentUser.name || 'Học viên Design';
+          document.getElementById('profileEmailText').textContent = currentUser.email;
+          document.getElementById('profileProgressSummary').textContent = `Đã hoàn thành ${doneCount} / 30 ngày`;
+        } else {
+          profileView.classList.add('hidden');
+          formsView.classList.remove('hidden');
+          switchAuthTab(defaultTab);
+        }
+
+        const modal = document.getElementById('authModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      }
+
+      function closeAuthModal() {
+        const modal = document.getElementById('authModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+
+      function isValidEmail(email) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      }
+
+      async function handleRegisterSubmit(e) {
+        e.preventDefault();
+        const name = document.getElementById('regNameInput').value.trim();
+        const email = document.getElementById('regEmailInput').value.trim().toLowerCase();
+        const password = document.getElementById('regPasswordInput').value;
+        const confirmPw = document.getElementById('regConfirmPasswordInput').value;
+
+        if (!name) return showAuthError('Vui lòng nhập tên hiển thị của bạn.');
+        if (!isValidEmail(email)) return showAuthError('Địa chỉ Email chưa đúng định dạng (VD: ten@gmail.com).');
+        if (password.length < 6) return showAuthError('Mật khẩu cần tối thiểu 6 ký tự.');
+        if (password !== confirmPw) return showAuthError('Mật khẩu nhập lại chưa khớp.');
+
+        const currentGuestSnapshot = buildFullStateSnapshot();
+
+        if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+          try {
+            const res = await fetch('api/register', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name, email, password, initialState: currentGuestSnapshot })
+            });
+            const data = await res.json();
+            if (!res.ok) return showAuthError(data.error || 'Không thể đăng ký tài khoản.');
+            saveSessionUser({ name: data.user.name, email: data.user.email });
+            applyLoadedSnapshot(currentGuestSnapshot);
+            saveState();
+            updateAuthHeaderUI();
+            closeAuthModal();
+            document.getElementById('registerForm').reset();
+            showToast(`Đã đăng ký & lưu tài khoản ${email} vào users_db.json!`, 'success');
+            return;
+          } catch (err) {
+            // Rơi về localStorage nếu không chạy qua server.py
+          }
+        }
+
+        const users = loadLocalUsersMap();
+        if (users[email]) {
+          return showAuthError('Email này đã được đăng ký trước đó. Hãy chuyển sang tab Đăng nhập.');
+        }
+
+        const passwordHash = await hashPasswordClient(email, password);
+        users[email] = { name, email, passwordHash, createdAt: new Date().toISOString() };
+        saveLocalUsersMap(users);
+
+        saveSessionUser({ name, email });
+        applyLoadedSnapshot(currentGuestSnapshot);
+        saveState();
+        updateAuthHeaderUI();
+        closeAuthModal();
+        document.getElementById('registerForm').reset();
+        showToast(`Chào mừng ${name}! Đã tạo tài khoản ${email} thành công.`, 'success');
+      }
+
+      async function handleLoginSubmit(e) {
+        e.preventDefault();
+        const email = document.getElementById('loginEmailInput').value.trim().toLowerCase();
+        const password = document.getElementById('loginPasswordInput').value;
+
+        if (!isValidEmail(email)) return showAuthError('Vui lòng nhập đúng địa chỉ Email.');
+        if (!password) return showAuthError('Vui lòng nhập mật khẩu.');
+
+        if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+          try {
+            const res = await fetch('api/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email, password })
+            });
+            const data = await res.json();
+            if (!res.ok) return showAuthError(data.error || 'Email hoặc mật khẩu không đúng.');
+            saveSessionUser({ name: data.user.name, email: data.user.email });
+            resetStateToDefaultsInMemory();
+            if (data.state && Object.keys(data.state).length > 0) {
+              applyLoadedSnapshot(data.state);
+            } else {
+              loadState();
+            }
+            applyTheme();
+            syncFilterControlsUI();
+            switchHubTab(activeHubTab);
+            renderTools();
+            syncSlidersToActiveHsb();
+            renderAll();
+            updateAuthHeaderUI();
+            closeAuthModal();
+            document.getElementById('loginForm').reset();
+            showToast(`Chào mừng trở lại, ${data.user.name}!`, 'success');
+            return;
+          } catch (err) {
+            // Rơi về localStorage nếu không chạy qua server.py
+          }
+        }
+
+        const users = loadLocalUsersMap();
+        const userRec = users[email];
+        if (!userRec) {
+          return showAuthError('Không tìm thấy tài khoản với Email này. Hãy bấm tab Đăng ký Email.');
+        }
+
+        const passwordHash = await hashPasswordClient(email, password);
+        if (userRec.passwordHash !== passwordHash) {
+          return showAuthError('Mật khẩu không đúng. Vui lòng thử lại.');
+        }
+
+        saveSessionUser({ name: userRec.name, email: userRec.email });
+        loadState();
+        applyTheme();
+        syncFilterControlsUI();
+        switchHubTab(activeHubTab);
+        renderTools();
+        syncSlidersToActiveHsb();
+        renderAll();
+        updateAuthHeaderUI();
+        closeAuthModal();
+        document.getElementById('loginForm').reset();
+        showToast(`Đã đăng nhập tài khoản ${userRec.name} (${userRec.email})!`, 'success');
+      }
+
+      function handleLogout() {
+        const oldEmail = currentUser ? currentUser.email : '';
+        saveSessionUser(null);
+        loadState();
+        applyTheme();
+        syncFilterControlsUI();
+        switchHubTab(activeHubTab);
+        renderTools();
+        syncSlidersToActiveHsb();
+        renderAll();
+        updateAuthHeaderUI();
+        closeAuthModal();
+        showToast(`Đã đăng xuất khỏi ${oldEmail}.`, 'info');
       }
 
       // =========================================================================
@@ -3219,6 +3533,19 @@
         // Theme toggle
         document.getElementById('themeToggleBtn').addEventListener('click', toggleTheme);
 
+        // Tài khoản Email (Đăng ký / Đăng nhập / Hồ sơ)
+        document.getElementById('openAuthBtn').addEventListener('click', () => openAuthModal('register'));
+        document.getElementById('closeAuthModalBtn').addEventListener('click', closeAuthModal);
+        document.getElementById('authModal').addEventListener('click', (e) => {
+          if (e.target.id === 'authModal') closeAuthModal();
+        });
+        document.getElementById('authTabLoginBtn').addEventListener('click', () => switchAuthTab('login'));
+        document.getElementById('authTabRegisterBtn').addEventListener('click', () => switchAuthTab('register'));
+        document.getElementById('registerForm').addEventListener('submit', handleRegisterSubmit);
+        document.getElementById('loginForm').addEventListener('submit', handleLoginSubmit);
+        document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+        document.getElementById('profileExportJsonBtn').addEventListener('click', exportJson);
+
         // Nút cuộn nhanh đến Trung tâm Bài tập cho Newbie
         document.getElementById('scrollToPracticeBtn').addEventListener('click', () => {
           document.getElementById('newbiePracticeHub').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -3437,12 +3764,15 @@
             if (!document.getElementById('dayDetailModal').classList.contains('hidden')) closeDayDetailModal();
             if (!document.getElementById('hsbModal').classList.contains('hidden')) closeHsbModal();
             if (!document.getElementById('resetConfirmModal').classList.contains('hidden')) closeResetModal();
+            if (!document.getElementById('authModal').classList.contains('hidden')) closeAuthModal();
           }
         });
       }
 
       // Khởi chạy ứng dụng khi DOM đã sẵn sàng
       document.addEventListener('DOMContentLoaded', () => {
+        loadSessionUser();
+        updateAuthHeaderUI();
         loadState();
         applyTheme();
         syncFilterControlsUI();
@@ -3454,7 +3784,8 @@
         bindGlobalEvents();
         renderAll();
         if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
-          fetch('api/state')
+          const emailKey = currentUser && currentUser.email ? currentUser.email.toLowerCase() : 'guest';
+          fetch(`api/state?email=${encodeURIComponent(emailKey)}`)
             .then((res) => (res.ok ? res.json() : null))
             .then((diskData) => {
               if (diskData && typeof diskData === 'object' && Object.keys(diskData).length > 0) {
@@ -3465,10 +3796,11 @@
                 renderTools();
                 syncSlidersToActiveHsb();
                 renderAll();
-                updateSaveStatusUI('Đã đồng bộ từ progress_data.json');
+                updateSaveStatusUI(`Đã đồng bộ từ progress_data.json (${emailKey})`);
               }
             })
             .catch(() => {});
         }
+
       });
     })();
